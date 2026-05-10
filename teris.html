@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Tetris 递增垃圾关卡版</title>
+
+<style>
+body {
+    margin: 0;
+    background: #111;
+    color: white;
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    touch-action: none;
+}
+
+canvas {
+    background: black;
+    border: 2px solid #444;
+    touch-action: none;
+}
+
+h2 {
+    margin: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h2 id="levelText">Level 1</h2>
+
+<canvas id="game"></canvas>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const COLS = 10;
+const ROWS = 20;
+const BLOCK = 30;
+
+canvas.width = COLS * BLOCK;
+canvas.height = ROWS * BLOCK;
+
+// ===== 颜色 =====
+const COLORS = [
+    null,
+    "#00FFFF",
+    "#0000FF",
+    "#FFA500",
+    "#FFFF00",
+    "#00FF00",
+    "#800080",
+    "#FF0000",
+    "#FFFFFF"
+];
+
+// ===== 方块 =====
+const SHAPES = [
+    [],
+    [[1,1,1,1]],
+    [[2,0,0],[2,2,2]],
+    [[0,0,3],[3,3,3]],
+    [[4,4],[4,4]],
+    [[0,5,5],[5,5,0]],
+    [[0,6,0],[6,6,6]],
+    [[7,7,0],[0,7,7]]
+];
+
+// ===== 状态 =====
+let level = 1;
+let grid = createGrid();
+
+// ===== 创建地图 =====
+function createGrid() {
+    return Array.from({length: ROWS}, () =>
+        Array(COLS).fill(0)
+    );
+}
+
+// ===== 垃圾生成（关键：随关卡增加行数）=====
+function generateGarbage() {
+
+    let lines = 1 + (level - 1); // ⭐核心：每关+1行
+
+    for(let y = ROWS - lines; y < ROWS; y++) {
+        for(let x = 0; x < COLS; x++) {
+            if(Math.random() < 0.4) {
+                grid[y][x] = 8; // 白色垃圾块
+            }
+        }
+    }
+}
+
+// ===== 方块 =====
+function createPiece() {
+    let id = Math.floor(Math.random() * 7) + 1;
+    return {
+        shape: SHAPES[id],
+        color: id,
+        x: 3,
+        y: 0
+    };
+}
+
+let piece = createPiece();
+
+// ===== 绘制 =====
+function drawCell(x,y,color){
+    ctx.fillStyle = color;
+    ctx.fillRect(x*BLOCK,y*BLOCK,BLOCK,BLOCK);
+    ctx.strokeStyle="#222";
+    ctx.strokeRect(x*BLOCK,y*BLOCK,BLOCK,BLOCK);
+}
+
+function draw(){
+    ctx.fillStyle="#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS;x++){
+            if(grid[y][x]){
+                drawCell(x,y,COLORS[grid[y][x]]);
+            }
+        }
+    }
+
+    piece.shape.forEach((r,dy)=>{
+        r.forEach((v,dx)=>{
+            if(v){
+                drawCell(piece.x+dx,piece.y+dy,COLORS[piece.color]);
+            }
+        });
+    });
+}
+
+// ===== 碰撞 =====
+function collide(){
+    for(let y=0;y<piece.shape.length;y++){
+        for(let x=0;x<piece.shape[y].length;x++){
+            if(piece.shape[y][x]){
+                let nx = piece.x + x;
+                let ny = piece.y + y;
+
+                if(nx<0||nx>=COLS||ny>=ROWS) return true;
+                if(ny>=0 && grid[ny][nx]) return true;
+            }
+        }
+    }
+    return false;
+}
+
+// ===== 固定 =====
+function merge(){
+    piece.shape.forEach((r,dy)=>{
+        r.forEach((v,dx)=>{
+            if(v){
+                grid[piece.y+dy][piece.x+dx]=piece.color;
+            }
+        });
+    });
+}
+
+// ===== 消行 =====
+function clearLines(){
+    outer:
+    for(let y=ROWS-1;y>=0;y--){
+        for(let x=0;x<COLS;x++){
+            if(grid[y][x]===0) continue outer;
+        }
+        grid.splice(y,1);
+        grid.unshift(Array(COLS).fill(0));
+        y++;
+    }
+}
+
+// ===== 胜利检测 =====
+function checkWin(){
+    for(let y=0;y<ROWS;y++){
+        for(let x=0;x<COLS;x++){
+            if(grid[y][x]===8) return false;
+        }
+    }
+    return true;
+}
+
+// ===== 移动 =====
+function move(dx){
+    piece.x += dx;
+    if(collide()) piece.x -= dx;
+}
+
+// ===== 旋转 =====
+function rotate(){
+    let old = piece.shape;
+    piece.shape = piece.shape[0].map((_,i)=>
+        piece.shape.map(r=>r[i]).reverse()
+    );
+    if(collide()) piece.shape = old;
+}
+
+// ===== 下落 =====
+function drop(){
+    piece.y++;
+
+    if(collide()){
+        piece.y--;
+        merge();
+        clearLines();
+
+        if(checkWin()){
+            level++;
+
+            setTimeout(()=>{
+                alert("🎉 进入第 " + level + " 关");
+            },100);
+
+            grid = createGrid();
+            generateGarbage();
+        }
+
+        piece = createPiece();
+
+        if(collide()){
+            alert("Game Over");
+            level = 1;
+            grid = createGrid();
+            generateGarbage();
+            piece = createPiece();
+        }
+    }
+}
+
+// ===== 自动下落 =====
+let last=0,dropT=0;
+
+function update(t=0){
+    let d=t-last;
+    last=t;
+    dropT+=d;
+
+    if(dropT>500){
+        drop();
+        dropT=0;
+    }
+
+    draw();
+    requestAnimationFrame(update);
+
+    document.getElementById("levelText").innerText =
+        "Level " + level;
+}
+
+update();
+
+// ===== 键盘 =====
+document.addEventListener("keydown",e=>{
+    if(e.key==="ArrowLeft")move(-1);
+    if(e.key==="ArrowRight")move(1);
+    if(e.key==="ArrowDown")drop();
+    if(e.key==="ArrowUp")rotate();
+});
+
+// ===== 手势控制 =====
+let sx=0,sy=0;
+
+canvas.addEventListener("touchstart",(e)=>{
+    let t=e.touches[0];
+    sx=t.clientX;
+    sy=t.clientY;
+});
+
+canvas.addEventListener("touchend",(e)=>{
+    let t=e.changedTouches[0];
+
+    let dx=t.clientX-sx;
+    let dy=t.clientY-sy;
+
+    let ax=Math.abs(dx);
+    let ay=Math.abs(dy);
+
+    if(ax>ay){
+        dx>0?move(1):move(-1);
+    }else{
+        dy>0?drop():rotate();
+    }
+});
+
+generateGarbage();
+
+</script>
+
+</body>
+</html>
