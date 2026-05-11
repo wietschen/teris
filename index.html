@@ -78,6 +78,7 @@ const SHAPES = [
 let level = 1;
 let paused = false;
 let showHelp = true;
+
 let grid = createGrid();
 
 // ===== 创建地图 =====
@@ -87,15 +88,15 @@ function createGrid() {
     );
 }
 
-// ===== 垃圾生成（关键：随关卡增加行数）=====
+// ===== 垃圾生成 =====
 function generateGarbage() {
 
-    let lines = 1 + (level - 1); // ⭐核心：每关+1行
+    let lines = 1 + (level - 1);
 
     for(let y = ROWS - lines; y < ROWS; y++) {
         for(let x = 0; x < COLS; x++) {
             if(Math.random() < 0.1) {
-                grid[y][x] = 8; // 白色垃圾块
+                grid[y][x] = 8;
             }
         }
     }
@@ -122,10 +123,13 @@ function drawCell(x,y,color){
     ctx.strokeRect(x*BLOCK,y*BLOCK,BLOCK,BLOCK);
 }
 
+// ===== 主绘制 =====
 function draw(){
+
     ctx.fillStyle="#000";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
+    // 地图
     for(let y=0;y<ROWS;y++){
         for(let x=0;x<COLS;x++){
             if(grid[y][x]){
@@ -134,6 +138,7 @@ function draw(){
         }
     }
 
+    // 当前方块
     piece.shape.forEach((r,dy)=>{
         r.forEach((v,dx)=>{
             if(v){
@@ -142,10 +147,24 @@ function draw(){
         });
     });
 
+    // 帮助
     if(showHelp){
         drawHelp();
+    }
+
+    // 暂停层
+    if(paused){
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        ctx.fillStyle = "white";
+        ctx.font = "30px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("PAUSED", canvas.width/2, canvas.height/2);
+    }
 }
 
+// ===== 操作说明 =====
 function drawHelp(){
 
     ctx.fillStyle = "rgba(0,0,0,0.6)";
@@ -204,7 +223,7 @@ function clearLines(){
     }
 }
 
-// ===== 胜利检测 =====
+// ===== 胜利 =====
 function checkWin(){
     for(let y=0;y<ROWS;y++){
         for(let x=0;x<COLS;x++){
@@ -240,11 +259,6 @@ function drop(){
 
         if(checkWin()){
             level++;
-
-            setTimeout(()=>{
-                alert("🎉 进入第 " + level + " 关");
-            },100);
-
             grid = createGrid();
             generateGarbage();
         }
@@ -261,7 +275,7 @@ function drop(){
     }
 }
 
-// ===== 自动下落 =====
+// ===== 游戏循环 =====
 let last=0,dropT=0;
 
 function update(t=0){
@@ -284,37 +298,36 @@ function update(t=0){
     document.getElementById("levelText").innerText =
         "Level " + level;
 }
-    
+
 update();
 
 // ===== 键盘 =====
 document.addEventListener("keydown",e=>{
-    if(e.key === " "){   // 空格暂停
+
+    // 空格暂停（始终可用）
+    if(e.key === " "){
         paused = !paused;
         showHelp = false;
         return;
     }
 
     if(paused) return;
-    
+
     if(e.key==="ArrowLeft")move(-1);
     if(e.key==="ArrowRight")move(1);
     if(e.key==="ArrowDown")drop();
     if(e.key==="ArrowUp")rotate();
 });
 
-// ===== 手势控制 =====
+// ===== 触摸 =====
 let sx=0,sy=0;
-
-
+let lastTap = 0;
 
 canvas.addEventListener("touchstart",(e)=>{
     let t=e.touches[0];
     sx=t.clientX;
     sy=t.clientY;
 });
-
-let lastTap = 0;
 
 canvas.addEventListener("touchend",(e)=>{
 
